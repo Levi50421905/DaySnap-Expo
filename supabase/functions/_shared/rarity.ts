@@ -1,0 +1,85 @@
+export type RarityTier = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary'
+export const RARITY_ORDER: RarityTier[] = ['common', 'uncommon', 'rare', 'epic', 'legendary']
+
+export function degradeRarity(current: RarityTier): RarityTier {
+  const idx = RARITY_ORDER.indexOf(current)
+  return idx > 0 ? RARITY_ORDER[idx - 1] : 'common'
+}
+
+export function boostRarity(current: RarityTier, steps = 1): RarityTier {
+  const idx = RARITY_ORDER.indexOf(current)
+  return RARITY_ORDER[Math.min(idx + steps, RARITY_ORDER.length - 1)]
+}
+
+export type AccessibilityLevel = 'very_high' | 'high' | 'standard' | 'very_low' | 'unknown'
+
+const NEIGHBOR_REGIONS: Record<string, string[]> = {
+  indonesia: ['malaysia', 'singapore', 'brunei', 'timor-leste'],
+  france: ['belgium', 'switzerland', 'luxembourg', 'monaco'],
+  italy: ['france', 'switzerland', 'austria', 'slovenia'],
+  japan: ['south korea', 'china', 'taiwan'],
+}
+
+export function getAccessibilityLevel(nativeRegion: string | null, photoCountry: string | null): AccessibilityLevel {
+  if (!nativeRegion || !photoCountry) return 'unknown'
+  const native = nativeRegion.toLowerCase()
+  const photo = photoCountry.toLowerCase()
+
+  if (native === 'global') return 'standard'
+  if (photo.includes(native) || native.includes(photo)) return 'very_high'
+
+  const neighbors = NEIGHBOR_REGIONS[native] ?? []
+  if (neighbors.some(n => photo.includes(n))) return 'high'
+
+  return 'very_low'
+}
+
+// PDD section 07 tabel 37 — Local/Travel/Home, dihitung dari lokasi rumah user
+// (berbeda dari accessibility di atas, yang dihitung dari native_region objek)
+export function calculateDiscoveryContext(
+  photoLocation: { country?: string; city?: string } | null,
+  homeLocation: { country?: string; city?: string } | null,
+  aiContextNote: string | null,
+): 'local' | 'travel' | 'home' | null {
+  const indoorKeywords = ['indoor', 'dalam rumah', 'di rumah', 'inside home', 'home interior']
+  if (aiContextNote && indoorKeywords.some(k => aiContextNote.toLowerCase().includes(k))) {
+    return 'home'
+  }
+  if (!photoLocation || !homeLocation) return null
+
+  const sameCity = homeLocation.city && photoLocation.city &&
+    homeLocation.city.toLowerCase() === photoLocation.city.toLowerCase()
+  const sameCountry = homeLocation.country && photoLocation.country &&
+    homeLocation.country.toLowerCase() === photoLocation.country.toLowerCase()
+
+  if (sameCity) return 'local'
+  if (sameCountry) return 'local'
+  return 'travel'
+}
+
+interface RarityInput {
+  global_rarity: RarityTier
+  encounter_count: number
+  confidence: number
+}
+
+export function calculateFinalRarity(input: RarityInput, accessibility: AccessibilityLevel): RarityTier {
+  let rarity = input.global_rarity
+
+  if (accessibility === 'very_low') rarity = boostRarity(rarity, 2)
+  else if (accessibility === 'high') rarity = boostRarity(rarity, 1)
+
+  const encounterPenalty = Math.min(Math.floor(input.encounter_count / 2), 2)
+  for (let i = 0; i < encounterPenalty; i++) rarity = degradeRarity(rarity)
+
+  let idx = RARITY_ORDER.indexOf(rarity)
+
+  if (input.confidence < 0.4) idx = Math.max(idx - 2, 0)
+  else if (input.confidence < 0.6) idx = Math.max(idx - 1, 0)
+
+  const globalIdx = RARITY_ORDER.indexOf(input.global_rarity)
+  const minIdx = globalIdx >= 3 ? 1 : 0
+  idx = Math.max(idx, minIdx)
+
+  return RARITY_ORDER[idx]
+}
