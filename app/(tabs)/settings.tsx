@@ -13,6 +13,7 @@ import { Modal } from 'react-native'
 import { HomeLocationForm } from '@/components/location/HomeLocationForm'
 import { scheduleDailyReminder, scheduleMonthlyRecap } from '@/lib/notifications/schedule'
 import DateTimePicker from '@react-native-community/datetimepicker'
+import { exportUserData } from '@/lib/export/export-data'
 
 export default function SettingsScreen() {
   const { user, signOut } = useAuth()
@@ -23,6 +24,7 @@ export default function SettingsScreen() {
   const [showLocationModal, setShowLocationModal] = useState(false)
   const [showTimePicker, setShowTimePicker] = useState(false)
   const [showDayChangePicker, setShowDayChangePicker] = useState(false)
+  const [exporting, setExporting] = useState(false)
 
   const load = useCallback(async () => {
     if (!user) return
@@ -59,6 +61,18 @@ export default function SettingsScreen() {
       }
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function handleExport() {
+    if (!user) return
+    setExporting(true)
+    try {
+      await exportUserData(user.id)
+    } catch (e: any) {
+      Alert.alert('Gagal export', e.message ?? 'Terjadi kesalahan saat export data')
+    } finally {
+      setExporting(false)
     }
   }
 
@@ -234,6 +248,12 @@ export default function SettingsScreen() {
             <SettingsToggle enabled={settings.notif_monthly_recap} onChange={v => update('notif_monthly_recap', v)} />
           </SettingsItem>
         </SettingsGroup>
+
+        <SettingsItem
+  label="Export Semua Data"
+  sublabel={exporting ? 'Menyiapkan file...' : 'Download foto, snaps, dan memories sebagai JSON'}
+  onPress={exporting ? undefined : handleExport}
+/>
 
         <SettingsGroup label="Privacy & Data">
           <SettingsItem label="Reset Collection" sublabel="Hapus semua snap tanpa hapus foto" onPress={handleResetCollection} />
