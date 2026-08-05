@@ -21,12 +21,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session)
       setLoading(false)
+    }).catch((err) => {
+      console.warn('[auth] getSession error', err)
+      setSession(null)
+      setLoading(false)
     })
-
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      setSession(newSession)
+  
+    const { data: listener } = supabase.auth.onAuthStateChange((event, newSession) => {
+      if (event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
+        setSession(newSession)
+      } else {
+        setSession(newSession)
+      }
     })
-
+  
     return () => listener.subscription.unsubscribe()
   }, [])
 

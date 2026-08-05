@@ -9,6 +9,8 @@ import { SettingsToggle } from '@/components/settings/SettingsToggle'
 import { getUserSettings, updateUserSettings, type UserSettings } from '@/lib/settings/user-settings'
 import { deleteUserData, resetCollection } from '@/lib/account/delete'
 import { useFocusEffect } from 'expo-router'
+import { Modal } from 'react-native'
+import { HomeLocationForm } from '@/components/location/HomeLocationForm'
 
 export default function SettingsScreen() {
   const { user, signOut } = useAuth()
@@ -16,6 +18,7 @@ export default function SettingsScreen() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [storageInfo, setStorageInfo] = useState<{ photos: number; snaps: number } | null>(null)
+  const [showLocationModal, setShowLocationModal] = useState(false)
 
   const load = useCallback(async () => {
     if (!user) return
@@ -127,6 +130,12 @@ export default function SettingsScreen() {
           <SettingsItem label="Pin foto setelah hari berlalu" sublabel="Izinkan pin foto ke hari yang sudah lewat" border={false}>
             <SettingsToggle enabled={settings.allow_pin_after_day} onChange={v => update('allow_pin_after_day', v)} />
           </SettingsItem>
+          <SettingsItem
+  label="Lokasi Rumah"
+  sublabel={settings.home_location?.city ? `${settings.home_location.city}${settings.home_location.country ? ', ' + settings.home_location.country : ''}` : 'Belum diatur'}
+  onPress={() => setShowLocationModal(true)}
+  border={false}
+/>
         </SettingsGroup>
 
         <SettingsGroup label="AI & Collection">
@@ -180,6 +189,20 @@ export default function SettingsScreen() {
           <SettingsItem label="Versi" value="1.0.0" border={false} />
         </SettingsGroup>
       </ScrollView>
+      <Modal visible={showLocationModal} animationType="slide" transparent onRequestClose={() => setShowLocationModal(false)}>
+  <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'flex-end' }}>
+    <View style={{ backgroundColor: '#141416', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 40 }}>
+      <Text style={{ color: '#E8E6E1', fontWeight: '700', fontSize: 16, marginBottom: 16 }}>Lokasi Rumah</Text>
+      <HomeLocationForm
+        initial={settings.home_location}
+        onSave={async (loc) => {
+          await update('home_location', loc)
+          setShowLocationModal(false)
+        }}
+      />
+    </View>
+  </View>
+</Modal>
     </SafeAreaView>
   )
 }
