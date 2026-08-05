@@ -7,6 +7,7 @@ import { OnboardingProvider, useOnboarding } from '@/lib/onboarding-context'
 import { setupNotificationChannels, requestNotificationPermission } from '@/lib/notifications/setup'
 import { scheduleDailyReminder, scheduleMonthlyRecap } from '@/lib/notifications/schedule'
 import { getUserSettings } from '@/lib/settings/user-settings'
+import { checkMonthEndMemoryPrompt } from '@/lib/notifications/month-end-prompt'
 
 function RootNavigation() {
   const { session, loading: authLoading } = useAuth()
@@ -50,11 +51,12 @@ function RootNavigation() {
   
       await scheduleDailyReminder(settings.reminder_time, settings.notif_daily_reminder)
       await scheduleMonthlyRecap(settings.notif_monthly_recap)
+      await checkMonthEndMemoryPrompt(session!.user.id, settings.notif_monthly_recap)
     }
   
     syncNotifications()
   }, [session])
-  
+
   if (authLoading) return null
 
   return <Slot />
