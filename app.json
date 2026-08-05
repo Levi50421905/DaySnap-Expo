@@ -41,7 +41,15 @@
         {
           "locationAlwaysAndWhenInUsePermission": "Daysnap butuh lokasi untuk menentukan area rumah kamu (dipakai untuk fitur Discovery Context)."
         }
-      ]
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#4ECDC4"
+        }
+      ],
+      "@react-native-community/datetimepicker"
     ],
     "extra": {
       "router": {},
