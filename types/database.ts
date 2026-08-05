@@ -44,6 +44,10 @@ export type Photo = {
     encounter_count: number
     first_discovered_at: string
     created_at: string
+    acquisition_type: string | null
+    has_visible_signature: boolean
+    is_sealed_package: boolean
+    badges: string[]
   }
   
   export type Memory = {

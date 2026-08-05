@@ -1,11 +1,11 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
 import { sanitizeDetectionResponse, type DetectionResult } from '../_shared/validate.ts'
-import { getAccessibilityLevel, calculateDiscoveryContext, calculateFinalRarity } from '../_shared/rarity.ts'
+import { getAccessibilityLevel, calculateDiscoveryContext, calculateFinalRarity, computeBadges } from '../_shared/rarity.ts'
 
 const MODEL_VERSION = 'gemini-3.5-flash'
 const FALLBACK_MODEL = 'gemini-2.5-flash'
-const PROMPT_VERSION = '2.1'
+const PROMPT_VERSION = '2.3'
 const CONFIDENCE_UNKNOWN_THRESHOLD = 0.5
 
 const DETECTION_PROMPT = `
@@ -18,13 +18,26 @@ Rules:
 - canonical_key must be snake_case, stable, and unique per specific object (not generic)
 - native_region: country/region where this object originates; use "global" if not region-specific
 - context_note: mention explicitly if the photo appears to be taken indoors/at home
+- If the object is a specific product/model (e.g. gadget, smartwatch, phone, vehicle) and you cannot clearly confirm the EXACT model/generation number from visible details (visible text, logos, distinctive design changes), do NOT guess the specific model confidently. In that case: use a more general name (e.g. "Huawei Watch GT Series" instead of guessing "GT 4" or "GT 5"), and set confidence below 0.6 to reflect the uncertainty.
 
-Global rarity rubric (assign global_rarity based on how rare this SPECIFIC object is worldwide):
+Global rarity rubric (assign global_rarity based on how rare this SPECIFIC object/person is worldwide):
 - common: seen daily by most people
 - uncommon: common in one region but not everywhere
-- rare: specific variant, specialty dish, or uncommon species
+- rare: specific variant, specialty item, or uncommon species/public figure
 - epic: very hard to encounter even with effort
 - legendary: extremely unique (<0.01% encounter rate)
+
+SPECIAL RULES FOR category="person" (celebrities, idols, public figures, or their merchandise):
+Determine "acquisition_type" based on visual cues:
+- "candid_chance": a candid photo of the person taken in a public/street setting, NOT at an organized event (no stage, banner, crowd barrier visible)
+- "candid_event": a candid photo taken at an organized event (concert, meet & greet, fan signing — visible stage/banner/crowd control)
+- "merch_general": this is a photo of official merchandise (photocard, album, poster) with NO visible signature
+- "merch_signed": official merchandise WITH a visible handwritten signature/autograph, but generic (not addressed to a specific name)
+- "merch_personalized": official merchandise with a signature that includes a specific person's name written by hand (personalized dedication)
+Also determine:
+- "has_visible_signature": true if any handwritten signature/autograph is visible anywhere in the photo
+- "is_sealed_package": true if the merchandise is still in its original sealed plastic wrap
+If category is NOT "person", omit acquisition_type, has_visible_signature, and is_sealed_package entirely (or set them to null/false).
 
 - confidence: 0.0–1.0 how sure you are about the specific identification (not rarity)
 
@@ -40,7 +53,10 @@ Return this exact JSON structure:
     "global_rarity": "common|uncommon|rare|epic|legendary",
     "confidence": 0.0,
     "condition_note": "brief note about condition or action in photo",
-    "context_note": "brief note about environment or atmosphere"
+    "context_note": "brief note about environment or atmosphere",
+    "acquisition_type": "candid_chance|candid_event|merch_general|merch_signed|merch_personalized or null",
+    "has_visible_signature": false,
+    "is_sealed_package": false
   },
   "secondary": []
 }
@@ -119,68 +135,82 @@ function encodeBase64(buffer: ArrayBuffer): string {
     throw lastError
   }
 
-async function resolveAndSaveSnap(
-  supabase: any,
-  userId: string,
-  photoId: string,
-  detection: DetectionResult & { model_version: string; prompt_version: string; is_unknown: boolean },
-  isMain: boolean,
-  photoLocation: Record<string, string> | null,
-  homeLocation: Record<string, string> | null,
-) {
-  const photoCountry = photoLocation?.country ?? null
-
-  const { data: priorCanonical } = await supabase
-    .from('snaps')
-    .select('encounter_count')
-    .eq('user_id', userId)
-    .eq('canonical_key', detection.canonical_key)
-    .eq('is_main', true)
-    .order('encounter_count', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-
-  const encounterCount = priorCanonical?.encounter_count ?? 0
-
-  const accessibility = getAccessibilityLevel(detection.native_region ?? null, photoCountry)
-  const discoveryContext = calculateDiscoveryContext(photoLocation, homeLocation, detection.context_note ?? null)
-
-  const finalRarity = calculateFinalRarity(
-    { global_rarity: detection.global_rarity, encounter_count: encounterCount, confidence: detection.confidence },
-    accessibility,
-  )
-
-  const { data: newSnap, error } = await supabase
-    .from('snaps')
-    .insert({
-      user_id: userId,
-      photo_id: photoId,
-      canonical_key: detection.canonical_key,
-      scientific_name: detection.scientific_name ?? null,
-      common_name_en: detection.common_name_en,
-      common_name_id: detection.common_name_id ?? null,
-      category: detection.category,
-      global_rarity: detection.global_rarity,
-      current_rarity: finalRarity,
-      native_region: detection.native_region ?? null,
+  async function resolveAndSaveSnap(
+    supabase: any,
+    userId: string,
+    photoId: string,
+    detection: DetectionResult & { model_version: string; prompt_version: string; is_unknown: boolean },
+    isMain: boolean,
+    photoLocation: Record<string, string> | null,
+    homeLocation: Record<string, string> | null,
+  ) {
+    const photoCountry = photoLocation?.country ?? null
+  
+    const { data: priorCanonical } = await supabase
+      .from('snaps')
+      .select('encounter_count')
+      .eq('user_id', userId)
+      .eq('canonical_key', detection.canonical_key)
+      .eq('is_main', true)
+      .order('encounter_count', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+  
+    const encounterCount = priorCanonical?.encounter_count ?? 0
+  
+    const accessibility = getAccessibilityLevel(detection.native_region ?? null, photoCountry)
+    const discoveryContext = calculateDiscoveryContext(photoLocation, homeLocation, detection.context_note ?? null)
+  
+    const finalRarity = calculateFinalRarity(
+      { global_rarity: detection.global_rarity, encounter_count: encounterCount, confidence: detection.confidence },
       accessibility,
-      discovery_context: discoveryContext,
-      condition_note: detection.condition_note ?? null,
-      context_note: detection.context_note ?? null,
-      confidence: detection.confidence,
-      photo_location: photoLocation,
-      is_main: isMain,
-      is_unknown: detection.is_unknown,
-      model_version: detection.model_version,
-      prompt_version: detection.prompt_version,
-      encounter_count: encounterCount + 1,
+      detection.acquisition_type ?? null,
+    )
+  
+    const badges = computeBadges({
+      acquisitionType: detection.acquisition_type ?? null,
+      hasVisibleSignature: detection.has_visible_signature ?? false,
+      isSealedPackage: detection.is_sealed_package ?? false,
+      nativeRegion: detection.native_region ?? null,
+      photoCountry,
+      homeCountry: homeLocation?.country ?? null,
     })
-    .select()
-    .single()
-
-  if (error) throw error
-  return newSnap.id
-}
+  
+    const { data: newSnap, error } = await supabase
+      .from('snaps')
+      .insert({
+        user_id: userId,
+        photo_id: photoId,
+        canonical_key: detection.canonical_key,
+        scientific_name: detection.scientific_name ?? null,
+        common_name_en: detection.common_name_en,
+        common_name_id: detection.common_name_id ?? null,
+        category: detection.category,
+        global_rarity: detection.global_rarity,
+        current_rarity: finalRarity,
+        native_region: detection.native_region ?? null,
+        accessibility,
+        discovery_context: discoveryContext,
+        condition_note: detection.condition_note ?? null,
+        context_note: detection.context_note ?? null,
+        confidence: detection.confidence,
+        photo_location: photoLocation,
+        is_main: isMain,
+        is_unknown: detection.is_unknown,
+        model_version: detection.model_version,
+        prompt_version: detection.prompt_version,
+        encounter_count: encounterCount + 1,
+        acquisition_type: detection.acquisition_type ?? null,
+        has_visible_signature: detection.has_visible_signature ?? false,
+        is_sealed_package: detection.is_sealed_package ?? false,
+        badges,
+      })
+      .select()
+      .single()
+  
+    if (error) throw error
+    return newSnap.id
+  }
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })

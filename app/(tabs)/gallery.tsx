@@ -76,7 +76,13 @@ export default function GalleryScreen() {
       )}
 
       {selected && (
-        <PhotoLightbox visible={!!selected} photo={selected} onClose={() => setSelected(null)} onStatusChange={load} />
+        <PhotoLightbox
+        visible={!!selected}
+        photo={selected}
+        onClose={() => setSelected(null)}
+        onStatusChange={load}
+        onDeleted={load}
+      />
       )}
     </SafeAreaView>
   )

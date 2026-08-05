@@ -4,6 +4,7 @@ import { Upload, X, CheckCircle2 } from 'lucide-react-native'
 import { useAuth } from '@/lib/auth-context'
 import { pickPhotos, uploadPhoto, type PickedPhoto } from '@/lib/photos/upload'
 import { getTodayString } from '@/lib/exif/validator'
+import { validatePhotoAuthenticity } from '@/lib/exif/validator'
 
 interface PhotoUploadProps {
   dayChangeHour: number
@@ -24,7 +25,27 @@ export function PhotoUpload({ dayChangeHour, onSuccess, multiple = true }: Photo
     try {
       const picked = await pickPhotos(multiple)
       if (picked.length === 0) return
-      setQueue(prev => (multiple ? [...prev, ...picked] : picked))
+  
+      const valid: PickedPhoto[] = []
+      const rejectedReasons: string[] = []
+  
+      for (const item of picked) {
+        const check = validatePhotoAuthenticity(item.exif, dayChangeHour)
+        if (check.valid) {
+          valid.push(item)
+        } else {
+          rejectedReasons.push(check.error ?? 'Foto ditolak')
+        }
+      }
+  
+      if (valid.length > 0) {
+        setQueue(prev => (multiple ? [...prev, ...valid] : valid))
+      }
+  
+      if (rejectedReasons.length > 0) {
+        const uniqueReasons = [...new Set(rejectedReasons)]
+        setError(`${rejectedReasons.length} foto ditolak: ${uniqueReasons[0]}`)
+      }
     } catch (e: any) {
       setError(e.message ?? 'Gagal membuka galeri')
     }

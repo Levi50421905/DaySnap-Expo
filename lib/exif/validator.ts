@@ -64,3 +64,48 @@ export type ExifValidationResult = {
   
     return { valid: true, dateTaken }
   }
+    export type AuthenticityResult = {
+      valid: boolean
+      error?: string
+    }
+    
+    export function validatePhotoAuthenticity(
+      exif: Record<string, any> | null | undefined,
+      dayChangeHour = 0,
+    ): AuthenticityResult {
+      if (!exif) {
+        return {
+          valid: false,
+          error:
+            'Foto ini gak punya data kamera (EXIF). Kemungkinan ini hasil download/screenshot, bukan foto asli.',
+        }
+      }
+    
+      const hasMake =
+        typeof exif.Make === 'string' &&
+        exif.Make.trim().length > 0
+    
+      const hasModel =
+        typeof exif.Model === 'string' &&
+        exif.Model.trim().length > 0
+    
+      if (!hasMake || !hasModel) {
+        return {
+          valid: false,
+          error:
+            'Foto ini gak terdeteksi diambil dari kamera/HP. Kemungkinan hasil download dari internet atau sudah diedit ulang.',
+        }
+      }
+    
+      const dateResult = validateExifDate(exif, dayChangeHour)
+    
+      if (!dateResult.valid) {
+        return {
+          valid: false,
+          error: dateResult.error,
+        }
+      }
+    
+      return { valid: true }
+    }
+  

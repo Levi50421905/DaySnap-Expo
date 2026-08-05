@@ -4,6 +4,10 @@ import { X } from 'lucide-react-native'
 import { RarityBadge } from './RarityBadge'
 import { DiscoveryJournal } from './DiscoveryJournal'
 import type { RarityTier } from '@/lib/constants/rarity'
+import { BadgeRow } from './BadgeChip'
+import { useState } from 'react'
+import { Pencil } from 'lucide-react-native'
+import { EditSnapModal } from './EditSnapModal'
 
 interface SnapDetailProps {
   visible: boolean
@@ -28,6 +32,7 @@ interface SnapDetailProps {
 }
 
 export function SnapDetail({ visible, snap, onClose }: SnapDetailProps) {
+  const [showEdit, setShowEdit] = useState(false)
   const photoUrl = snap.photos?.url ?? snap.photos?.thumbnail_url
   const locationStr = snap.photo_location
     ? [snap.photo_location.city, snap.photo_location.country].filter(Boolean).join(', ')
@@ -70,6 +75,10 @@ export function SnapDetail({ visible, snap, onClose }: SnapDetailProps) {
               <Text style={styles.title}>{snap.is_unknown ? 'Unknown Discovery' : snap.common_name_en}</Text>
               {snap.common_name_id && !snap.is_unknown && <Text style={styles.subtitle}>{snap.common_name_id}</Text>}
               {snap.scientific_name && !snap.is_unknown && <Text style={styles.scientific}>{snap.scientific_name}</Text>}
+              <TouchableOpacity onPress={() => setShowEdit(true)} style={styles.editBtn}>
+  <Pencil size={12} color="#6B6A66" />
+  <Text style={styles.editBtnText}>Koreksi identifikasi</Text>
+</TouchableOpacity>
             </View>
 
             <View style={styles.table}>
@@ -87,12 +96,21 @@ export function SnapDetail({ visible, snap, onClose }: SnapDetailProps) {
                 {snap.context_note && <Text style={styles.contextNote}>{snap.context_note}</Text>}
               </View>
             )}
-
+<BadgeRow badges={snap.badges ?? []} />
             <DiscoveryJournal encounters={encounters} />
             <View style={{ height: 40 }} />
           </ScrollView>
         </View>
       </View>
+      <EditSnapModal
+  visible={showEdit}
+  snap={snap}
+  onClose={() => setShowEdit(false)}
+  onSaved={() => {
+    setShowEdit(false)
+    onUpdated()
+  }}
+/>
     </Modal>
   )
 }
@@ -107,6 +125,8 @@ const styles = StyleSheet.create({
   title: { fontSize: 20, fontWeight: '700', color: '#E8E6E1', marginTop: 8 },
   subtitle: { fontSize: 13, color: '#6B6A66' },
   scientific: { fontSize: 11, color: '#6B6A66', fontStyle: 'italic', marginTop: 2 },
+  editBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', marginTop: 10, backgroundColor: '#1C1C1F', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 },
+editBtnText: { fontSize: 11, color: '#6B6A66' },
   table: { borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', borderRadius: 10, overflow: 'hidden', marginBottom: 16 },
   tableRow: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' },
   tableLabel: { fontSize: 10, fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: 1, color: '#6B6A66' },

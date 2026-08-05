@@ -10,15 +10,25 @@ import { supabase } from '@/lib/supabase'
 import type { Photo } from '@/types/database'
 import { showDiscoveryAlert } from '@/lib/notifications/discovery-alert'
 import { getUserSettings } from '@/lib/settings/user-settings'
+import { Trash2 } from 'lucide-react-native'
+import { Alert } from 'react-native'
+import { deletePhoto } from '@/lib/photos/queries'
 
 interface PhotoLightboxProps {
   visible: boolean
   photo: Photo
   onClose: () => void
   onStatusChange?: () => void
+  onDeleted?: () => void
 }
 
-export function PhotoLightbox({ visible, photo, onClose, onStatusChange }: PhotoLightboxProps) {
+export function PhotoLightbox({
+  visible,
+  photo,
+  onClose,
+  onStatusChange,
+  onDeleted,
+}: PhotoLightboxProps) {
   const { user } = useAuth()
   const [analyzing, setAnalyzing] = useState(false)
   const [analyzeError, setAnalyzeError] = useState<string | null>(null)
@@ -26,6 +36,7 @@ export function PhotoLightbox({ visible, photo, onClose, onStatusChange }: Photo
   const [snap, setSnap] = useState<{ id: string; common_name_en: string; current_rarity: string } | null>(null)
   const [memory, setMemory] = useState<{ id: string; title: string; reason: string | null } | null>(null)
   const [loadingStatus, setLoadingStatus] = useState(true)
+  const [deleting, setDeleting] = useState(false)
 
   const date = new Date(photo.date_taken + 'T00:00:00')
   const formatted = date.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
@@ -67,17 +78,65 @@ export function PhotoLightbox({ visible, photo, onClose, onStatusChange }: Photo
       setAnalyzing(false)
     }
   }
-
+  async function confirmDelete() {
+    Alert.alert(
+      'Hapus foto ini?',
+      'Snap dan Memory Anchor yang terkait foto ini juga akan terhapus. Tindakan ini tidak bisa dibatalkan.',
+      [
+        {
+          text: 'Batal',
+          style: 'cancel',
+        },
+        {
+          text: 'Hapus',
+          style: 'destructive',
+          onPress: async () => {
+            if (!user) return
+  
+            setDeleting(true)
+  
+            try {
+              await deletePhoto(user.id, photo)
+  
+              onDeleted?.()
+              onClose()
+            } catch {
+              Alert.alert(
+                'Gagal',
+                'Gagal menghapus foto. Coba lagi.',
+              )
+            } finally {
+              setDeleting(false)
+            }
+          },
+        },
+      ],
+    )
+  }
   return (
     <>
       <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
         <View style={styles.container}>
-          <View style={styles.topBar}>
-            <Text style={styles.dateText}>{formatted}</Text>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <X size={18} color="#fff" />
-            </TouchableOpacity>
-          </View>
+        <View style={styles.topBar}>
+  <Text style={styles.dateText}>{formatted}</Text>
+
+  <View style={{ flexDirection: 'row', gap: 8 }}>
+    <TouchableOpacity
+      onPress={confirmDelete}
+      disabled={deleting}
+      style={styles.closeBtn}
+    >
+      <Trash2 size={16} color="#F87171" />
+    </TouchableOpacity>
+
+    <TouchableOpacity
+      onPress={onClose}
+      style={styles.closeBtn}
+    >
+      <X size={18} color="#fff" />
+    </TouchableOpacity>
+  </View>
+</View>
 
           <View style={styles.imageWrap}>
             <Image source={{ uri: photo.url }} style={StyleSheet.absoluteFill} contentFit="contain" />

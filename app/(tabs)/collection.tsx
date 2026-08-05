@@ -108,7 +108,17 @@ export default function CollectionScreen() {
         />
       )}
 
-      {selected && <SnapDetail visible={!!selected} snap={selected} onClose={() => setSelected(null)} />}
+{selected && (
+  <SnapDetail
+    visible={!!selected}
+    snap={selected}
+    onClose={() => setSelected(null)}
+    onUpdated={() => {
+      setSelected(null)
+      load()
+    }}
+  />
+)}
     </SafeAreaView>
   )
 }

@@ -1,5 +1,7 @@
 import type { RarityTier } from '@/lib/constants/rarity'
+export type Badge = 'overseas_import' | 'event_exclusive' | 'signed' | 'chance_encounter' | 'sealed_mystery'
 
+export type AcquisitionType = 'candid_chance' | 'candid_event' | 'merch_general' | 'merch_signed' | 'merch_personalized'
 export type DetectionResult = {
   canonical_key: string
   scientific_name?: string
