@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
-import { View, Text, ScrollView, StyleSheet } from 'react-native'
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useAuth } from '@/lib/auth-context'
 import { fetchStats, type Stats } from '@/lib/stats/queries'
 import { RARITY_CONFIG, type RarityTier } from '@/lib/constants/rarity'
 import { Skeleton } from '@/components/ui/Skeleton'
-import { useFocusEffect } from 'expo-router'
+import { useRouter, useFocusEffect } from 'expo-router'
+import { Medal } from 'lucide-react-native'
 
 const CATEGORY_EMOJI: Record<string, string> = {
   food: '🍜', animal: '🐾', plant: '🌿', landmark: '🏛️', weather: '🌤', object: '📦', person: '👤', other: '✦',
@@ -22,6 +23,7 @@ function StatCard({ label, value, sub }: { label: string; value: string | number
 }
 
 export default function StatsScreen() {
+  const router = useRouter()
   const { user } = useAuth()
   const [stats, setStats] = useState<Stats | null>(null)
   const [loading, setLoading] = useState(true)
@@ -38,7 +40,13 @@ export default function StatsScreen() {
     return (
       <SafeAreaView style={styles.safe} edges={['top']}>
         <ScrollView contentContainerStyle={styles.container}>
-          <Text style={styles.title}>Stats</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+  <Text style={[styles.title, { marginBottom: 0 }]}>Stats</Text>
+  <TouchableOpacity onPress={() => router.push('/badges')} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#141416', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7 }}>
+    <Medal size={13} color="#E8C547" />
+    <Text style={{ fontSize: 11, color: '#E8E6E1' }}>Badges</Text>
+  </TouchableOpacity>
+</View>
           <View style={styles.grid2}>
             {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} style={{ height: 90, width: '48%', borderRadius: 14 }} />)}
           </View>
@@ -55,7 +63,13 @@ export default function StatsScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView contentContainerStyle={styles.container}>
-        <Text style={styles.title}>Stats</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+  <Text style={[styles.title, { marginBottom: 0 }]}>Stats</Text>
+  <TouchableOpacity onPress={() => router.push('/badges')} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#141416', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7 }}>
+    <Medal size={13} color="#E8C547" />
+    <Text style={{ fontSize: 11, color: '#E8E6E1' }}>Badges</Text>
+  </TouchableOpacity>
+</View>
 
         <View style={styles.grid2}>
           <StatCard label="Hari Aktif" value={stats.active_days} sub="total hari upload foto" />

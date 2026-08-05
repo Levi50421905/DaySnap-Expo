@@ -53,3 +53,25 @@ export async function pinPhotoAsDaily(
     if (error) throw error
     return data
   }
+
+  function extractStoragePath(publicUrl: string | null): string | null {
+    if (!publicUrl) return null
+    const marker = '/storage/v1/object/public/photos/'
+    const idx = publicUrl.indexOf(marker)
+    if (idx === -1) return null
+    return publicUrl.slice(idx + marker.length)
+  }
+  
+  export async function deletePhoto(userId: string, photo: Photo) {
+    const paths = [extractStoragePath(photo.url), extractStoragePath(photo.thumbnail_url)].filter(
+      (p): p is string => p !== null,
+    )
+  
+    if (paths.length > 0) {
+      await supabase.storage.from('photos').remove(paths)
+    }
+  
+    // snaps & memories terkait foto ini otomatis kehapus lewat ON DELETE CASCADE di database
+    const { error } = await supabase.from('photos').delete().eq('id', photo.id).eq('user_id', userId)
+    if (error) throw error
+  }

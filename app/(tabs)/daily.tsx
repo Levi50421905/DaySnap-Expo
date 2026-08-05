@@ -113,7 +113,13 @@ export default function DailyScreen() {
       </ScrollView>
 
       {selectedPhoto && (
-        <PhotoLightbox visible={!!selectedPhoto} photo={selectedPhoto} onClose={() => setSelectedPhoto(null)} onStatusChange={loadPhotos} />
+        <PhotoLightbox
+        visible={!!selected}
+        photo={selected}
+        onClose={() => setSelected(null)}
+        onStatusChange={load}
+        onDeleted={load}
+      />
       )}
     </SafeAreaView>
   )
