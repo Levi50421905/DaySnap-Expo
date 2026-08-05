@@ -3,25 +3,35 @@ import { Slot, useRouter, useSegments } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { AuthProvider, useAuth } from '@/lib/auth-context'
+import { OnboardingProvider, useOnboarding } from '@/lib/onboarding-context'
 
 function RootNavigation() {
-  const { session, loading } = useAuth()
+  const { session, loading: authLoading } = useAuth()
+  const { needsOnboarding, loading: onboardingLoading } = useOnboarding()
   const segments = useSegments()
   const router = useRouter()
 
   useEffect(() => {
-    if (loading) return
+    if (authLoading) return
 
     const inAuthGroup = segments[0] === '(auth)'
+    const inOnboardingGroup = segments[0] === '(onboarding)'
 
-    if (!session && !inAuthGroup) {
-      router.replace('/(auth)/login')
-    } else if (session && inAuthGroup) {
+    if (!session) {
+      if (!inAuthGroup) router.replace('/(auth)/login')
+      return
+    }
+
+    if (onboardingLoading) return
+
+    if (needsOnboarding && !inOnboardingGroup) {
+      router.replace('/(onboarding)/home-location')
+    } else if (!needsOnboarding && (inAuthGroup || inOnboardingGroup)) {
       router.replace('/(tabs)/daily')
     }
-  }, [session, loading, segments])
+  }, [session, authLoading, needsOnboarding, onboardingLoading, segments])
 
-  if (loading) return null
+  if (authLoading) return null
 
   return <Slot />
 }
@@ -30,8 +40,10 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
-        <StatusBar style="light" />
-        <RootNavigation />
+        <OnboardingProvider>
+          <StatusBar style="light" />
+          <RootNavigation />
+        </OnboardingProvider>
       </AuthProvider>
     </SafeAreaProvider>
   )

@@ -35,6 +35,12 @@
         {
           "photosPermission": "Daysnap butuh akses galeri untuk upload foto harian kamu."
         }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Daysnap butuh lokasi untuk menentukan area rumah kamu (dipakai untuk fitur Discovery Context)."
+        }
       ]
     ],
     "extra": {
