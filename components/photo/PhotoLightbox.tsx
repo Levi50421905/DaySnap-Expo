@@ -8,6 +8,8 @@ import { getMemoryForPhoto } from '@/lib/memories/queries'
 import { MemoryAnchorModal } from '@/components/memory/MemoryAnchorModal'
 import { supabase } from '@/lib/supabase'
 import type { Photo } from '@/types/database'
+import { showDiscoveryAlert } from '@/lib/notifications/discovery-alert'
+import { getUserSettings } from '@/lib/settings/user-settings'
 
 interface PhotoLightboxProps {
   visible: boolean
@@ -49,10 +51,16 @@ export function PhotoLightbox({ visible, photo, onClose, onStatusChange }: Photo
     setAnalyzing(true)
     setAnalyzeError(null)
     try {
-      const { error } = await supabase.functions.invoke('detect', { body: { photoId: photo.id } })
+      const { data, error } = await supabase.functions.invoke('detect', { body: { photoId: photo.id } })
       if (error) throw error
+  
       await fetchStatus()
       onStatusChange?.()
+  
+      const settings = await getUserSettings(user.id)
+      if (data?.detection?.main && settings) {
+        await showDiscoveryAlert(data.detection.main.common_name_en, data.detection.main.global_rarity, settings.notif_discovery)
+      }
     } catch (e: any) {
       setAnalyzeError(e.message ?? 'Gagal analisis')
     } finally {

@@ -11,6 +11,8 @@ import { deleteUserData, resetCollection } from '@/lib/account/delete'
 import { useFocusEffect } from 'expo-router'
 import { Modal } from 'react-native'
 import { HomeLocationForm } from '@/components/location/HomeLocationForm'
+import { scheduleDailyReminder, scheduleMonthlyRecap } from '@/lib/notifications/schedule'
+import DateTimePicker from '@react-native-community/datetimepicker'
 
 export default function SettingsScreen() {
   const { user, signOut } = useAuth()
@@ -19,6 +21,8 @@ export default function SettingsScreen() {
   const [saving, setSaving] = useState(false)
   const [storageInfo, setStorageInfo] = useState<{ photos: number; snaps: number } | null>(null)
   const [showLocationModal, setShowLocationModal] = useState(false)
+  const [showTimePicker, setShowTimePicker] = useState(false)
+  const [showDayChangePicker, setShowDayChangePicker] = useState(false)
 
   const load = useCallback(async () => {
     if (!user) return
@@ -41,10 +45,18 @@ export default function SettingsScreen() {
 
   async function update(key: keyof UserSettings, value: any) {
     if (!user || !settings) return
-    setSettings({ ...settings, [key]: value })
+    const updated = { ...settings, [key]: value }
+    setSettings(updated)
     setSaving(true)
     try {
       await updateUserSettings(user.id, { [key]: value })
+  
+      if (key === 'reminder_time' || key === 'notif_daily_reminder') {
+        await scheduleDailyReminder(updated.reminder_time, updated.notif_daily_reminder)
+      }
+      if (key === 'notif_monthly_recap') {
+        await scheduleMonthlyRecap(updated.notif_monthly_recap)
+      }
     } finally {
       setSaving(false)
     }
@@ -124,8 +136,56 @@ export default function SettingsScreen() {
         </SettingsGroup>
 
         <SettingsGroup label="Daily">
-          <SettingsItem label="Reminder Harian" value={settings.reminder_time} />
-          <SettingsItem label="Jam Pergantian Hari" sublabel="Untuk yang sering begadang" value={`${settings.day_change_hour}:00`} />
+        <SettingsItem
+  label="Reminder Harian"
+  sublabel="Jam berapa diingatkan untuk upload"
+  value={settings.reminder_time}
+  onPress={() => setShowTimePicker(true)}
+/>
+{showTimePicker && (
+  <DateTimePicker
+    value={(() => {
+      const [h, m] = settings.reminder_time.split(':').map(Number)
+      const d = new Date()
+      d.setHours(h, m, 0, 0)
+      return d
+    })()}
+    mode="time"
+    is24Hour
+    onChange={(_, selectedDate) => {
+      setShowTimePicker(false)
+      if (selectedDate) {
+        const h = String(selectedDate.getHours()).padStart(2, '0')
+        const m = String(selectedDate.getMinutes()).padStart(2, '0')
+        update('reminder_time', `${h}:${m}`)
+      }
+    }}
+  />
+)}
+          <SettingsItem
+  label="Jam Pergantian Hari"
+  sublabel="Untuk yang sering begadang"
+  value={`${settings.day_change_hour}:00`}
+  onPress={() => setShowDayChangePicker(true)}
+/>
+{showDayChangePicker && (
+  <DateTimePicker
+    value={(() => {
+      const d = new Date()
+      d.setHours(settings.day_change_hour, 0, 0, 0)
+      return d
+    })()}
+    mode="time"
+    is24Hour
+    minuteInterval={60}
+    onChange={(_, selectedDate) => {
+      setShowDayChangePicker(false)
+      if (selectedDate) {
+        update('day_change_hour', selectedDate.getHours())
+      }
+    }}
+  />
+)}
           <SettingsItem label="Zona Waktu" value={settings.timezone} />
           <SettingsItem label="Pin foto setelah hari berlalu" sublabel="Izinkan pin foto ke hari yang sudah lewat" border={false}>
             <SettingsToggle enabled={settings.allow_pin_after_day} onChange={v => update('allow_pin_after_day', v)} />
