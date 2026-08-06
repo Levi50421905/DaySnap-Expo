@@ -49,6 +49,13 @@
           "color": "#4ECDC4"
         }
       ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Daysnap butuh akses kamera untuk memfoto momen harianmu langsung.",
+          "microphonePermission": false
+        }
+      ],
       "@react-native-community/datetimepicker",
       "expo-sharing"
     ],

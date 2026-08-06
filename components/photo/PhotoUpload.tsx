@@ -5,6 +5,9 @@ import { useAuth } from '@/lib/auth-context'
 import { pickPhotos, uploadPhoto, type PickedPhoto } from '@/lib/photos/upload'
 import { getTodayString } from '@/lib/exif/validator'
 import { validatePhotoAuthenticity } from '@/lib/exif/validator'
+import { Camera as CameraIcon } from 'lucide-react-native'
+import { CameraCapture } from './CameraCapture'
+import { pickedFromCamera } from '@/lib/photos/upload'
 
 interface PhotoUploadProps {
   dayChangeHour: number
@@ -19,6 +22,7 @@ export function PhotoUpload({ dayChangeHour, onSuccess, multiple = true }: Photo
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
+  const [showCamera, setShowCamera] = useState(false)
 
   async function handlePick() {
     setError(null)
@@ -49,6 +53,12 @@ export function PhotoUpload({ dayChangeHour, onSuccess, multiple = true }: Photo
     } catch (e: any) {
       setError(e.message ?? 'Gagal membuka galeri')
     }
+  }
+
+  function handleCameraCapture(uri: string) {
+    setShowCamera(false)
+    const item = pickedFromCamera(uri)
+    setQueue(prev => (multiple ? [...prev, item] : [item]))
   }
 
   function removeFromQueue(index: number) {
@@ -100,60 +110,104 @@ export function PhotoUpload({ dayChangeHour, onSuccess, multiple = true }: Photo
   return (
     <View style={{ gap: 12 }}>
       {queue.length === 0 ? (
-        <TouchableOpacity onPress={handlePick} style={styles.dropzone}>
-          <Upload color="#6B6A66" size={24} />
-          <Text style={styles.dropzoneText}>{multiple ? 'Pilih satu atau banyak foto' : 'Pilih foto'}</Text>
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <TouchableOpacity
+            onPress={() => setShowCamera(true)}
+            style={[styles.dropzone, { flex: 1 }]}
+          >
+            <CameraIcon color="#4ECDC4" size={22} />
+            <Text style={styles.dropzoneText}>Ambil Foto</Text>
+          </TouchableOpacity>
+  
+          <TouchableOpacity
+            onPress={handlePick}
+            style={[styles.dropzone, { flex: 1 }]}
+          >
+            <Upload color="#6B6A66" size={22} />
+            <Text style={styles.dropzoneText}>Pilih dari Galeri</Text>
+          </TouchableOpacity>
+        </View>
       ) : (
         <View style={{ gap: 12 }}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: 8 }}
+          >
             {queue.map((item, index) => (
               <View key={item.uri} style={styles.previewWrap}>
                 <Image source={{ uri: item.uri }} style={StyleSheet.absoluteFill} />
-                <TouchableOpacity onPress={() => removeFromQueue(index)} style={styles.removeBtn}>
+  
+                <TouchableOpacity
+                  onPress={() => removeFromQueue(index)}
+                  style={styles.removeBtn}
+                >
                   <X size={12} color="#fff" />
                 </TouchableOpacity>
               </View>
             ))}
           </ScrollView>
-
+  
           {multiple && (
-            <TouchableOpacity onPress={handlePick}>
-              <Text style={styles.addMore}>+ Tambah foto lagi</Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', gap: 16 }}>
+              <TouchableOpacity onPress={() => setShowCamera(true)}>
+                <Text style={styles.addMore}>+ Ambil foto lagi</Text>
+              </TouchableOpacity>
+  
+              <TouchableOpacity onPress={handlePick}>
+                <Text style={styles.addMore}>+ Tambah dari galeri</Text>
+              </TouchableOpacity>
+            </View>
           )}
+  
+          <TextInput
+            value={caption}
+            onChangeText={setCaption}
+            placeholder="Caption untuk foto pertama... (opsional)"
+            placeholderTextColor="#6B6A66"
+            multiline
+            style={styles.captionInput}
+          />
+  
+          <Text style={styles.hint}>
+            Foto masuk Gallery dulu. Pilih foto Daily setelah upload selesai.
+          </Text>
+  
+          {error && <Text style={styles.error}>{error}</Text>}
+  
+          {progress && (
+            <Text style={styles.progress}>
+              Upload {progress.done}/{progress.total}...
+            </Text>
+          )}
+  
+          <TouchableOpacity
+            onPress={handleUpload}
+            disabled={loading}
+            style={[
+              styles.uploadBtn,
+              { opacity: loading ? 0.6 : 1 },
+            ]}
+          >
+            {loading ? (
+              <ActivityIndicator color="#0E0E10" />
+            ) : (
+              <>
+                <CheckCircle2 size={14} color="#0E0E10" />
+                <Text style={styles.uploadBtnText}>
+                  Upload {queue.length} Foto
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
         </View>
       )}
-
-      {queue.length > 0 && (
-        <TextInput
-          value={caption}
-          onChangeText={setCaption}
-          placeholder="Caption untuk foto pertama... (opsional)"
-          placeholderTextColor="#6B6A66"
-          multiline
-          style={styles.captionInput}
-        />
-      )}
-
-      {queue.length > 0 && <Text style={styles.hint}>Foto masuk Gallery dulu. Pilih foto Daily setelah upload selesai.</Text>}
-
-      {error && <Text style={styles.error}>{error}</Text>}
-
-      {progress && <Text style={styles.progress}>Upload {progress.done}/{progress.total}...</Text>}
-
-      {queue.length > 0 && (
-        <TouchableOpacity onPress={handleUpload} disabled={loading} style={[styles.uploadBtn, { opacity: loading ? 0.6 : 1 }]}>
-          {loading ? (
-            <ActivityIndicator color="#0E0E10" />
-          ) : (
-            <>
-              <CheckCircle2 size={14} color="#0E0E10" />
-              <Text style={styles.uploadBtnText}>Upload {queue.length} Foto</Text>
-            </>
-          )}
-        </TouchableOpacity>
-      )}
+  
+      <CameraCapture
+        visible={showCamera}
+        onClose={() => setShowCamera(false)}
+        onCapture={handleCameraCapture}
+      />
     </View>
   )
 }
