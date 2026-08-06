@@ -7,6 +7,11 @@ export type PickedPhoto = {
   exif: Record<string, any> | null
   width: number
   height: number
+  verified?: boolean // true = diambil langsung dari kamera in-app, gak perlu cek EXIF lagi
+}
+
+export function pickedFromCamera(uri: string): PickedPhoto {
+  return { uri, exif: null, width: 0, height: 0, verified: true }
 }
 
 export async function pickPhotos(multiple: boolean): Promise<PickedPhoto[]> {
